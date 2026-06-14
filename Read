@@ -1,0 +1,98 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- 重複防止（古いUIを消す）
+local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SelectTPGui")
+if oldGui then oldGui:Destroy() end
+
+-- --- GUIの作成 ---
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SelectTPGui"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- メイン枠（ドラッグ可能・大きめにしてリストを見やすく）
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 250)
+MainFrame.Position = UDim2.new(0.1, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40) -- 青みがかった黒
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- タイトル
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Text = "👥 プレイヤー選択ワープ 👥"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+Title.BorderSizePixel = 0
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 14
+Title.Parent = MainFrame
+
+-- スクロールできるリスト枠（人数が多くてもスクロールで上から下まで見れる）
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -10, 1, -45)
+ScrollingFrame.Position = UDim2.new(0, 5, 0, 40)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- 自動調整用
+ScrollingFrame.ScrollBarThickness = 6
+ScrollingFrame.Parent = MainFrame
+
+-- ボタンを綺麗に並べるための設定（自動配置レイアウト）
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ScrollingFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 5) -- ボタン同士の間隔
+
+-- --- リストを新しく更新する関数 ---
+local function updateList()
+    -- 一旦リスト内の古いボタンを全部消す
+    for _, child in pairs(ScrollingFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    -- サーバーのプレイヤー全員をループ処理（自分以外）
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local PlayerButton = Instance.new("TextButton")
+            PlayerButton.Size = UDim2.new(1, -10, 0, 30)
+            -- ディスプレイネーム（表示名）を表示
+            PlayerButton.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+            PlayerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            PlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            PlayerButton.TextSize = 12
+            PlayerButton.BorderSizePixel = 0
+            PlayerButton.Parent = ScrollingFrame
+            
+            -- ボタンが押されたらテレポートする
+            PlayerButton.MouseButton1Click:Connect(function()
+                if p.Character then
+                    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
+                    
+                    if myRoot and targetRoot then
+                        -- 相手の少し上にワープ
+                        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 3, 0)
+                        print(p.Name .. " にワープしました")
+                    end
+                end
+            end)
+        end
+    end
+    
+    -- スクロール枠の縦の長さを、人数に合わせて自動で伸ばす設定
+    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+end
+
+-- 最初にリストを作る
+updateList()
+
+-- 誰かがサーバーに入ってきた、または抜けた時に自動でリストを更新する
+Players.PlayerAdded:Connect(updateList)
+Players.PlayerRemoving:Connect(updateList)
